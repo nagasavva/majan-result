@@ -1,15 +1,99 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>大会記録</title>
+  <title>麻雀スコア記録</title>
 </head>
 <body>
-  <h1>第1回 大会記録</h1>
-  <table border="1">
-    <tr><th>名前</th><th>得点</th><th>順位</th></tr>
-    <tr><td>田中</td><td>85</td><td>1位</td></tr>
-    <tr><td>佐藤</td><td>78</td><td>2位</td></tr>
-  </table>
+  <h1>麻雀スコア記録フォーム</h1>
+  <form id="scoreForm">
+    <label>大会名: <input name="tournament" required></label><br>
+    <label>日付: <input name="date" type="date" required></label><br><br>
+    
+    <!-- 最大4人分（拡張可能） -->
+    <div id="players">
+      <div>
+        <label>プレイヤー1: <input name="player1"></label>
+        <label>スコア: <input name="score1" type="number"></label>
+      </div>
+      <div>
+        <label>プレイヤー2: <input name="player2"></label>
+        <label>スコア: <input name="score2" type="number"></label>
+      </div>
+      <div>
+        <label>プレイヤー3: <input name="player3"></label>
+        <label>スコア: <input name="score3" type="number"></label>
+      </div>
+      <div>
+        <label>プレイヤー4: <input name="player4"></label>
+        <label>スコア: <input name="score4" type="number"></label>
+      </div>
+    </div>
+    <br>
+    <button type="submit">送信</button>
+  </form>
+
+  <p id="result"></p>
+
+  <script>
+    const TOKEN = 'YOUR_PERSONAL_ACCESS_TOKEN'; // 🔒ここにトークンを貼る（後述）
+    const USERNAME = 'YOUR_GITHUB_USERNAME';    // GitHubユーザー名
+    const REPO = 'YOUR_REPO_NAME';              // リポジトリ名
+    const FILEPATH = 'scores.json';             // JSONファイルのパス
+    const BRANCH = 'main';                      // ブランチ名（通常は main）
+
+    document.getElementById('scoreForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const form = e.target;
+      const entry = {
+        tournament: form.tournament.value,
+        date: form.date.value,
+        players: []
+      };
+
+      for (let i = 1; i <= 20; i++) {
+        const name = form[`player${i}`]?.value;
+        const score = form[`score${i}`]?.value;
+        if (name && score) {
+          entry.players.push({ name, score: Number(score) });
+        }
+      }
+
+      const apiUrl = `https://api.github.com/repos/${USERNAME}/${REPO}/contents/${FILEPATH}`;
+
+      try {
+        const getRes = await fetch(apiUrl, {
+          headers: { Authorization: `token ${TOKEN}` }
+        });
+        const data = await getRes.json();
+        const currentContent = JSON.parse(atob(data.content));
+        currentContent.push(entry);
+        const updatedContent = btoa(JSON.stringify(currentContent, null, 2));
+
+        const res = await fetch(apiUrl, {
+          method: 'PUT',
+          headers: {
+            Authorization: `token ${TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: `スコア追加: ${entry.tournament} ${entry.date}`,
+            content: updatedContent,
+            sha: data.sha,
+            branch: BRANCH
+          })
+        });
+
+        if (res.ok) {
+          document.getElementById('result').textContent = '✅ スコアを記録しました！';
+        } else {
+          throw new Error(await res.text());
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('result').textContent = '❌ エラーが発生しました';
+      }
+    });
+  </script>
 </body>
 </html>
